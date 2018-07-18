@@ -76,7 +76,7 @@ if (exists(template)) {
    */
 
   if (!~template.indexOf('/')) {
-    template = 'https://github.com/vuejs-templates/' + template
+    template = 'vuejs-templates/' + template
   }
 
   /**
@@ -85,7 +85,7 @@ if (exists(template)) {
 
   var tmp = '/tmp/vue-template-' + uid()
 
-  console.log('ready to download template: ', chalk.green(template))
+  console.log('going to download template: ', chalk.green(template))
 
   download(template, tmp, function(err) {
     if (err) logger.fatal(err)
