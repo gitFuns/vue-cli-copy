@@ -1,7 +1,7 @@
 {
   "name": "vue-cli-copy",
   "version": "1.0.0",
-  "description": "try master web cli by vue-cli project",
+  "description": "try to master web cli via this project",
   "main": "index.js",
   "directories": {
     "lib": "lib"

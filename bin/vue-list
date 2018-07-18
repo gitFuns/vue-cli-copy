@@ -9,7 +9,7 @@ var chalk = require('chalk')
 request({
   url: 'https://api.github.com/users/vuejs-templates/repos',
   headers: {
-    'User-Agent': 'vue-cli'
+    'User-Agent': 'vue-cli-copy'
   }
 }, function(err, res, body) {
   if (err) logger.fatal(err)
@@ -19,7 +19,7 @@ request({
   JSON.parse(body).forEach(function(repo) {
     console.log(
       '   ' + chalk.yellow('★') +
-      '   ' + chalk.blue(repo.name) +
+      '   ' + chalk.green(repo.name) +
       ' _ ' + repo.description)
   })
 })
