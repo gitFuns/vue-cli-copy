@@ -1,18 +1,19 @@
 #!/usr/bin/env node
 
-var Khaos = require('khaos')
-var metadata = require('read-metadata')
 var download = require('download-git-repo')
 var program = require('commander')
 var exists = require('fs').existsSync
-var join = require('path').join
-var resolve = require('path').resolve
+var path = require('path')
 var rm = require('rimraf').sync
 var uid = require('uid')
+var ora = require('ora')
 var chalk = require('chalk')
+var inquirer = require('inquirer')
+var request = require('request')
 
 var logger = require('../lib/logger')
-var getGitUser = require('../lib/git-user')
+var generate = require('../lib/generate')
+var checkVersion = require('../lib/checkVersion')
 
 /**
  *  Usage.
