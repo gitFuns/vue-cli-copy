@@ -4,7 +4,21 @@ var logger = require('../lib/logger')
 var request = require('request')
 var chalk = require('chalk')
 
-/* List repos */
+/**
+ * Padding
+ */
+
+console.log()
+
+process.on('exit', function () {
+  console.log()
+})
+
+
+
+/**
+ * List repos
+ */
 
 request({
   url: 'https://api.github.com/users/vuejs-templates/repos',

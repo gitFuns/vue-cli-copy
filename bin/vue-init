@@ -2,8 +2,7 @@
 
 var Khaos = require('khaos')
 var metadata = require('read-metadata')
-var download = require('download-github-repo')
-var logger = require('../lib/logger')
+var download = require('download-git-repo')
 var program = require('commander')
 var exists = require('fs').existsSync
 var join = require('path').join
@@ -11,6 +10,9 @@ var resolve = require('path').resolve
 var rm = require('rimraf').sync
 var uid = require('uid')
 var chalk = require('chalk')
+
+var logger = require('../lib/logger')
+var getGitUser = require('../lib/git-user')
 
 /**
  *  Usage.
@@ -47,10 +49,22 @@ if (program.args.length < 2) return program.help()
 
 
 /**
+ * Padding
+ */
+
+console.log()
+
+process.on('exit', function () {
+  console.log()
+})
+
+
+/**
  *  Settings
  */
 
 var template = program.args[0]
+var hasSlash = template.indexOf('/') > -1
 var name = program.args[1]
 var dir = program.directory
 var to = resolve(name)
@@ -62,7 +76,7 @@ if (exists(to)) logger.fatal('"%s" already exists.', name)
  *  Detect if template on file system
  */
 
-if (exists(template)) {
+if (hasSlash && exists(template)) {
   generate(template, to, function(err) {
     if (err) logger.fatal(err)
     console.log()
@@ -75,7 +89,7 @@ if (exists(template)) {
    *  Detect official template
    */
 
-  if (!~template.indexOf('/')) {
+  if (!hasSlash) {
     template = 'vuejs-templates/' + template
   }
 
@@ -116,33 +130,7 @@ function generate (src, dest, fn) {
   var opts = options(src)
 
   khaos.schema(opts.schema)
-  khaos.read(function(err, files) {
-    if (err) logger.fatal(err)
-
-    khaos.parse(files, function(err, schema) {
-      if (err) logger.fatal(err)
-
-      khaos.prompt(schema, function(err, answers) {
-        if (err) logger.fatal(err)
-
-        // work around prompt-for bug
-        // which ignores default value for strings
-        // otherwise we can just use khaos.genearte :(
-        Object.keys(schema).forEach(function(key) {
-          if (
-            typeof schema[key] === 'object' &&
-            schema[key].type === 'string' &&
-            schema[key].default !== null &&
-            answers[key] === ''
-          ) {
-            answers[key] = schema[key].default
-          }
-        })
-
-        khaos.write(dest, files, answers, fn)
-      })
-    })
-  })
+  khaos.generate(dest, fn)
 }
 
 /**
@@ -152,11 +140,16 @@ function generate (src, dest, fn) {
  * @return {[object]}
  */
 
-function options(dir) {
+function options (dir) {
   var file = join(dir, 'meta.json')
   var opts = exists(file) ? metadata.sync(file) : {}
 
-  defaultName(opts)
+  setDefault(opts, 'name', name)
+
+  var author = getGitUser()
+  if (author) {
+    setDefault(opts, 'author', author)
+  }
 
   return opts
 }
@@ -166,17 +159,19 @@ function options(dir) {
  * Automatically infer the default project name
  *
  * @param  {object} opts
+ * @param  {string} key
+ * @param  {string} value
  */
 
-function defaultName(opts) {
+function setDefault (opts, key, value) {
   var schema = opts.schema || (opts.schema = {})
 
-  if (!schema.name || typeof schema.name !== 'object') {
-    schema.name = {
+  if (!schema[key] || typeof schema[key] !== 'object') {
+    schema[key] = {
       'type': 'string',
-      'default': name
+      'default': value
     }
   } else {
-    schema.name['default'] = name
+    schema[key]['default'] = value
   }
 }
