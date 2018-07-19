@@ -18,7 +18,9 @@ var getGitUser = require('../lib/git-user')
  *  Usage.
  */
 
-program.usage('<template-name> <project-name>')
+program
+  .usage('<template-name> <project-name>')
+  .option('-c, --clone', 'use git clone')
 
 
 /**
@@ -68,9 +70,9 @@ var hasSlash = template.indexOf('/') > -1
 var name = program.args[1]
 var dir = program.directory
 var to = resolve(name)
+var clone = program.clone || false
 
 if (exists(to)) logger.fatal('"%s" already exists.', name)
-
 
 /**
  *  Detect if template on file system
@@ -101,7 +103,7 @@ if (hasSlash && exists(template)) {
 
   console.log('going to download template: ', chalk.green(template))
 
-  download(template, tmp, function(err) {
+  download(template, tmp, { clone: clone },  function(err) {
     if (err) logger.fatal(err)
 
     generate(tmp, to, function(err) {
