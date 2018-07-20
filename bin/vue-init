@@ -13,7 +13,7 @@ var request = require('request')
 
 var logger = require('../lib/logger')
 var generate = require('../lib/generate')
-var checkVersion = require('../lib/checkVersion')
+var checkVersion = require('../lib/check-version')
 
 /**
  *  Usage.
@@ -46,9 +46,13 @@ program.on('--help', function() {
  *  Help
  */
 
-program.parse(process.argv)
+function help () {
+  program.parse(process.argv)
 
-if (program.args.length < 2) return program.help()
+  if (program.args.length < 1) return program.help()
+}
+
+help()
 
 
 /**
@@ -68,113 +72,117 @@ process.on('exit', function () {
 
 var template = program.args[0]
 var hasSlash = template.indexOf('/') > -1
-var name = program.args[1]
-var dir = program.directory
-var to = resolve(name)
+var rawname = program.args[1]
+var inPlace = !rawname || rawname === '.'
+var name = inPlace ? path.relative('../', process.cwd()) : rawname
+var to = path.resolve(rawname || '.')
 var clone = program.clone || false
 
-if (exists(to)) logger.fatal('"%s" already exists.', name)
-
-/**
- *  Detect if template on file system
- */
-
-if (hasSlash && exists(template)) {
-  generate(template, to, function(err) {
-    if (err) logger.fatal(err)
-    console.log()
-
-    logger.success('Generated "%s".', name)
+if (exists(to)) {
+  inquirer.prompt([{
+    type: 'confirm',
+    message: inPlace
+      ? 'Genearte project in current directory?'
+      : 'Target directory exists. Continue?',
+    name: 'ok'
+  }], function (answers) {
+    if (answers.ok) run()
   })
 } else {
+  run()
+}
 
-  /**
-   *  Detect official template
-   */
+/**
+ * Check, download and generate the project.
+ */
 
-  if (!hasSlash) {
-    template = 'vuejs-templates/' + template
-  }
-
-  /**
-   *  Download and generate
-   */
-
-  var tmp = '/tmp/vue-template-' + uid()
-
-  console.log('going to download template: ', chalk.green(template))
-
-  download(template, tmp, { clone: clone },  function(err) {
-    if (err) logger.fatal(err)
-
-    generate(tmp, to, function(err) {
+function run () {
+  // check if tempalte is local
+  if (hasSlash && exists(template)) {
+    generate(name, template, to, function(err) {
       if (err) logger.fatal(err)
-
-      rm(tmp)
       console.log()
 
-      logger.success('Generated "%s".', name)
+      logger.success('Genearte "%s".', name)
     })
+  } else {
+    checkVersion(function() {
+      if (!hasSlash) {
+        // use offical tempaltes
+        template = 'vuejs-templates/' + template
+
+        checkDistBranch(template, downloadAndGenerate)
+      } else {
+        downloadAndGenerate(template)
+      }
+    })
+  }
+}
+
+
+/**
+ * Check if the template has a dist branch, if yes, use that
+ *
+ * @param  {String}   template
+ * @param  {Function} cb
+ */
+
+function checkDistBranch (template, cb) {
+  var spinner = ora('get template branch info.')
+
+  spinner.start()
+
+  request({
+    url: 'https://api.github.com/repos/' + template + '/branches',
+    headers: {
+      'User-Agent': 'vue-cli-copy'
+    }
+  }, function (err,res, body) {
+    spinner.stop()
+
+    if (err) logger.fatal(err)
+
+    if (res.statusCode !== 200) {
+      logger.fatal('Template does not exist: ' + template)
+    } else {
+      var hasDist = JSON.parse(body).some(function (branch) {
+        return branch.name === 'dist'
+      })
+
+      if (!hasDist) {
+        console.log(chalk.yellow('this template has no dist branch, use master branch'))
+      }
+
+      return cb(hasDist ? template + '#dist' : template)
+    }
   })
 }
 
 
 /**
- * Generate a template given a `src` and `dest`
+ * Download a generate from a template repo.
  *
- * @param  {[type]}   src
- * @param  {[type]}   dest
- * @param  {Function} fn
+ * @return {String}
  */
 
-function generate (src, dest, fn) {
-  var template = join(src, 'template')
-  var khaos = new Khaos(template)
-  var opts = options(src)
+function downloadAndGenerate (template) {
+  var tmp = '/tmp/vue-template-' + uid()
+  var spinner = ora('downloading template')
 
-  khaos.schema(opts.schema)
-  khaos.generate(dest, fn)
-}
+  spinner.start()
 
-/**
- * Read prompts metadata
- *
- * @param  {[string]} dir
- * @return {[object]}
- */
+  download(template, tmp, { clone, clone }, function (err) {
+    spinner.stop()
 
-function options (dir) {
-  var file = join(dir, 'meta.json')
-  var opts = exists(file) ? metadata.sync(file) : {}
+    if (err) logger.fatal(err)
 
-  setDefault(opts, 'name', name)
+    generate(name, tmp, to, function (err) {
+      rm(tmp)
 
-  var author = getGitUser()
-  if (author) {
-    setDefault(opts, 'author', author)
-  }
+      if (err) logger.fatal(err)
 
-  return opts
-}
-
-
-/**
- * Automatically infer the default project name
- *
- * @param  {object} opts
- * @param  {string} key
- * @param  {string} value
- */
-
-function setDefault (opts, key, value) {
-  var schema = opts.schema || (opts.schema = {})
-
-  if (!schema[key] || typeof schema[key] !== 'object') {
-    schema[key] = {
-      'type': 'string',
-      'default': value
-    }
-  } else {
-    schema[key]['default'] = value
-  }
+      console.log()
+      logger.success('Genearte "%s".', name)
+    })
+  })
 }
