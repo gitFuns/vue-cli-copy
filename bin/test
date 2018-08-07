@@ -1,0 +1,12 @@
+#!/usr/bin/env node
+
+var path = require('path')
+var result = path.relative('../', process.cwd())
+var dest = path.resolve(result)
+
+console.log(process.cwd())
+console.log()
+console.log(result)
+console.log()
+console.dir(dest)
+`
