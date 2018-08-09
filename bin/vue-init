@@ -1,19 +1,24 @@
 #!/usr/bin/env node
 
-var download = require('download-git-repo')
-var program = require('commander')
-var exists = require('fs').existsSync
-var path = require('path')
-var rm = require('rimraf').sync
-var uid = require('uid')
-var ora = require('ora')
-var chalk = require('chalk')
-var inquirer = require('inquirer')
-var request = require('request')
+const download = require('download-git-repo')
+const program = require('commander')
+const exists = require('fs').existsSync
+const path = require('path')
+const ora = require('ora')
+const home = require('user-home')
+const tildify = require('tildify')
+const chalk = require('chalk')
 
-var logger = require('../lib/logger')
-var generate = require('../lib/generate')
-var checkVersion = require('../lib/check-version')
+const inquirer = require('inquirer')
+const rm = require('rimraf').sync
+const logger = require('../lib/logger')
+const generate = require('../lib/generate')
+const checkVersion = require('../lib/check-version')
+const warnings = require('../lib/warnings')
+const localPath = require('../lib/local-path')
+
+const isLocalPath = localPath.isLocalPath
+const getTemplatePath = localPath.getTemplatePath
 
 /**
  *  Usage.
@@ -22,6 +27,7 @@ var checkVersion = require('../lib/check-version')
 program
   .usage('<template-name> <project-name>')
   .option('-c, --clone', 'use git clone')
+  .option('--offline', 'use cached template')
 
 
 /**
@@ -70,24 +76,42 @@ process.on('exit', function () {
  *  Settings
  */
 
-var template = program.args[0]
-var hasSlash = template.indexOf('/') > -1
-var rawname = program.args[1]
-var inPlace = !rawname || rawname === '.'
-var name = inPlace ? path.relative('../', process.cwd()) : rawname
-var to = path.resolve(rawname || '.')
-var clone = program.clone || false
+const template = program.args[0]
+const hasSlash = template.indexOf('/') > -1
+const rawName = program.args[1]
+const inPlace = !rawName || rawName === '.'
+const name = inPlace ? path.relative('../', process.cwd()) : rawName
+const to = path.resolve(rawName || '.')
+const clone = program.clone || false
+const tmp = path.join(home, '.vue-templates', template.replace(/[\/:]/g, '-'))
 
-if (exists(to)) {
+if (program.offline) {
+  console.log(`> Use cached template at ${chalk.yellow(tildify(tmp))}`)
+
+  template = tmp
+}
+
+/**
+ * Padding
+ */
+
+console.log()
+process.on('exit', () => {
+  console.log()
+})
+
+if (inPlace || exists(to)) {
   inquirer.prompt([{
     type: 'confirm',
     message: inPlace
       ? 'Genearte project in current directory?'
       : 'Target directory exists. Continue?',
     name: 'ok'
-  }], function (answers) {
-    if (answers.ok) run()
+  }])
+  .then(answers => {
+    if (answers.ok) { run() }
   })
+  .catch(logger.fatal)
 } else {
   run()
 }
@@ -97,65 +121,16 @@ if (exists(to)) {
  */
 
 function run () {
-  // check if tempalte is local
-  if (hasSlash && exists(template)) {
-    generate(name, template, to, function(err) {
-      if (err) logger.fatal(err)
-      console.log()
+  // check if the template is local
+  if (isLocalPath(template)) {
+    const templatePath = getTemplatePath(template)
 
-      logger.success('Genearte "%s".', name)
-    })
-  } else {
-    checkVersion(function() {
-      if (!hasSlash) {
-        // use offical tempaltes
-        template = 'vuejs-templates/' + template
+    if (exists(templatePath)) {
 
-        checkDistBranch(template, downloadAndGenerate)
-      } else {
-        downloadAndGenerate(template)
-      }
-    })
-  }
-}
-
-
-/**
- * Check if the template has a dist branch, if yes, use that
- *
- * @param  {String}   template
- * @param  {Function} cb
- */
-
-function checkDistBranch (template, cb) {
-  var spinner = ora('get template branch info.')
-
-  spinner.start()
-
-  request({
-    url: 'https://api.github.com/repos/' + template + '/branches',
-    headers: {
-      'User-Agent': 'vue-cli-copy'
-    }
-  }, function (err, res, body) {
-    spinner.stop()
-
-    if (err) logger.fatal(err)
-
-    if (res.statusCode !== 200) {
-      logger.fatal('Template does not exist: ' + template)
     } else {
-      var hasDist = JSON.parse(body).some(function (branch) {
-        return branch.name === 'dist'
-      })
-
-      if (!hasDist) {
-        console.log(chalk.yellow('this template has no dist branch, use master branch'))
-      }
-
-      return cb(hasDist ? template + '#dist' : template)
+      logger.fatal('Local template "%s" not found.', template)
     }
-  })
+  }
 }
 
 
@@ -166,23 +141,5 @@ function checkDistBranch (template, cb) {
  */
 
 function downloadAndGenerate (template) {
-  var tmp = '/tmp/vue-template-' + uid()
-  var spinner = ora('downloading template')
 
-  spinner.start()
-
-  download(template, tmp, { clone, clone }, function (err) {
-    spinner.stop()
-
-    if (err) logger.fatal('Failed to download repo ' + tempalte + ': ' + err.message.trim())
-
-    generate(name, tmp, to, function (err) {
-      rm(tmp)
-
-      if (err) logger.fatal(err)
-
-      console.log()
-      logger.success('Genearte "%s".', name)
-    })
-  })
 }

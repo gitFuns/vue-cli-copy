@@ -1,12 +1,22 @@
 #!/usr/bin/env node
 
-var path = require('path')
-var result = path.relative('../', process.cwd())
-var dest = path.resolve(result)
+const path = require('path')
 
-console.log(process.cwd())
+const home = require('user-home')
+const tildify = require('tildify')
+const tmp = path.join(home, '.vue-templates', 'gitUser/gitRepo'.replace(/[\/:]/g, '-'))
+const tmp1 = tildify(tmp)
+
+console.log(tmp)
+
 console.log()
-console.log(result)
-console.log()
-console.dir(dest)
-`
+
+console.log(tmp1)
+
+console.log(process.version)
+
+console.log(/^[./]|(^[a-zA-Z]:)/.test('vuejs-templates/path'))
+
+const templatePath = 'vuejs-templates/path'
+console.log(path.join(process.cwd(), templatePath))
+console.log(path.normalize(path.join(process.cwd(), templatePath)))

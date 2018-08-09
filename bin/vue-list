@@ -30,6 +30,8 @@ request({
 
   console.log(' Available official templates:')
 
+  console.log()
+
   JSON.parse(body).forEach(function(repo) {
     console.log(
       '   ' + chalk.yellow('★') +
