@@ -83,6 +83,7 @@ const inPlace = !rawName || rawName === '.'
 const name = inPlace ? path.relative('../', process.cwd()) : rawName
 const to = path.resolve(rawName || '.')
 const clone = program.clone || false
+
 const tmp = path.join(home, '.vue-templates', template.replace(/[\/:]/g, '-'))
 
 if (program.offline) {
@@ -92,7 +93,7 @@ if (program.offline) {
 }
 
 /**
- * Padding
+ * Padding.
  */
 
 console.log()
@@ -126,10 +127,32 @@ function run () {
     const templatePath = getTemplatePath(template)
 
     if (exists(templatePath)) {
-
+      generate(name, templatePath, to, err => {
+        if (err) logger.fatal(err)
+        console.log()
+        logger.success('Generate "%s".', name)
+      })
     } else {
       logger.fatal('Local template "%s" not found.', template)
     }
+  } else {
+    checkVersion(() => {
+      if (!hasSlash) {
+        // use official templates
+        const officialTemplate = 'vuejs-templates/' + template
+        if (template.indexOf('#') !== -1) {
+          downloadAndGenerate(officialTemplate)
+        } else {
+          if (template.indexOf('-2.0') !== -1) {
+            warnings.v2SuffixTemplatesDeprecated(template, inPlace? '' : name)
+          }
+
+          downloadAndGenerate(officialTemplate)
+        }
+      } else {
+        downloadAndGenerate(template)
+      }
+    })
   }
 }
 
@@ -137,9 +160,26 @@ function run () {
 /**
  * Download a generate from a template repo.
  *
- * @return {String}
+ * @return {String} template
  */
 
 function downloadAndGenerate (template) {
+  const spinner = ora('downloading template...')
+  spinner.start()
 
+  // Remove if local template exists
+  if (exists(tmp)) rm(tmp)
+
+  download(template, tmp, { clone }, err => {
+    spinner.stop()
+
+    if (err) logger.fatal('Failed to download repo ' + template + ': ' + err.message.trim())
+
+    generate(name, tmp, to, err => {
+      if (err) logger.fatal(err)
+      console.log()
+
+      logger.success('Generated "%s".', name)
+    })
+  })
 }

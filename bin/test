@@ -20,3 +20,36 @@ console.log(/^[./]|(^[a-zA-Z]:)/.test('vuejs-templates/path'))
 const templatePath = 'vuejs-templates/path'
 console.log(path.join(process.cwd(), templatePath))
 console.log(path.normalize(path.join(process.cwd(), templatePath)))
+
+console.log('-------------------------------------------')
+
+const format = require('util').format
+
+console.log(format('%s:%s', 'foo'))
+
+console.log(format('%s:%s', 'foo', 'bar', 'baz'))
+
+console.log('-------------------------------------------')
+
+console.log(process.cwd())
+
+console.log(path.relative('../', process.cwd()))
+
+console.log(path.resolve('.'))
+
+console.log(path.resolve('template'))
+
+console.dir(require('user-home'))
+
+console.log('-------------------------------------------')
+
+const download = require('download-git-repo')
+
+
+download('vuejs-templates/webpack', path.join(process.cwd(), 'template'), (err, res) => {
+  if (err) {
+    console.log(err.message)
+  } else {
+    console.log(res)
+  }
+})
