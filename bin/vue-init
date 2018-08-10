@@ -167,7 +167,7 @@ function downloadAndGenerate (template) {
   const spinner = ora('downloading template...')
   spinner.start()
 
-  // Remove if local template exists
+  // Remove if local template exists => update local cache template
   if (exists(tmp)) rm(tmp)
 
   download(template, tmp, { clone }, err => {
